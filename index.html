@@ -57,6 +57,11 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 .sharedonly{display:none}.shared .sharedonly{display:block}.shared .localonly{display:none}
 :root[data-theme="dark"] .lv-deco{background:#f7f3e8;border-radius:12px;padding:5px;width:70px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lv-deco{background:#f7f3e8;border-radius:12px;padding:5px;width:70px}}
+.tile.t-rouge{background:#e0212f;border-color:#b3121f;color:#fff}.tile.t-rouge .c{color:#fff}
+.tile.t-bleu{background:#2455b8;border-color:#173b86;color:#fff}.tile.t-bleu .c{color:#fff}
+.tile.t-jaune{background:#f7c81a;border-color:#d4a50a;color:#12306b}.tile.t-jaune .c{color:#12306b}
+.tile.t-blanc{background:#fff;border-color:#c9d1e0;color:#12306b}.tile.t-blanc .c{color:#12306b}
+li.r.t-rouge{border-left:12px solid #e0212f}li.r.t-bleu{border-left:12px solid #2455b8}li.r.t-jaune{border-left:12px solid #f7c81a}li.r.t-blanc{border-left:12px solid #fff}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -90,7 +95,7 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 <p class="hint" id="msg"></p>
 </section>
 
-<footer class="ft">150 ANS<span>Anna de Noailles</span><br><small style="font-weight:500;letter-spacing:0;color:var(--mute)">version 7.1 · Google Sheet intégré</small></footer>
+<footer class="ft">150 ANS<span>Anna de Noailles</span><br><small style="font-weight:500;letter-spacing:0;color:var(--mute)">version 7.2 · Google Sheet intégré</small></footer>
 <script>
 var DEFAULT_SHEET='https://script.google.com/macros/s/AKfycbwxB6momcyiXhc7a3IfPJdYxOhSVm2uj_FSRx9XqrkJg4HisEpg0Y1-2qWkPdiSM50/exec';
 var LV=['PS/MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
@@ -110,6 +115,7 @@ function nf(x,d){return x.toLocaleString('fr-FR',{minimumFractionDigits:0,maximu
 function dist(m){return m<1000?nf(m,0)+' m':nf(m/1000,2)+' km'}
 function esc(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function ofLevel(l){var o=[];S.runners.forEach(function(r,i){if(r.level===l)o.push({r:r,i:i})});return o}
+function tc(n){var t=String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return t.indexOf('rouge')>=0?'t-rouge':t.indexOf('bleu')>=0?'t-bleu':t.indexOf('jaune')>=0?'t-jaune':t.indexOf('blanc')>=0?'t-blanc':''}
 function lapOf(l){return S.lapBy[l]||S.lapM}
 function lapsOf(l){return ofLevel(l).reduce(function(a,x){return a+x.r.laps.length},0)}
 function tick(){var q=race(),e=q.start?(q.end||Date.now())-q.start:0;$('clock').textContent=fmt(e);$('rl').textContent='Course '+S.cur+syncTxt();
@@ -120,8 +126,8 @@ $('chips').innerHTML=LV.map(function(l){return '<button data-l="'+l+'" class="'+
 $('chips').hidden=V==='dist';
 var cur=ofLevel(S.cur);
 $('empty').hidden=cur.length>0;
-$('tiles').innerHTML=cur.map(function(x){return '<div class="tile" role="button" tabindex="0" data-i="'+x.i+'"><button class="undo" data-u="'+x.i+'" aria-label="Retirer un tour pour '+esc(x.r.name)+'">-1</button><span class="n">'+esc(x.r.name)+'</span><span class="c">'+x.r.laps.length+'</span></div>'}).join('');
-$('list').innerHTML=order().map(function(r,i){return '<li class="r"><span class="pos">'+(i+1)+'</span><span class="nm">'+esc(r.name)+'<br><span class="hint">'+dist(r.laps.length*lapOf(S.cur))+'</span></span><span class="lp">'+r.laps.length+'</span></li>'}).join('');
+$('tiles').innerHTML=cur.map(function(x){return '<div class="tile '+tc(x.r.name)+'" role="button" tabindex="0" data-i="'+x.i+'"><button class="undo" data-u="'+x.i+'" aria-label="Retirer un tour pour '+esc(x.r.name)+'">-1</button><span class="n">'+esc(x.r.name)+'</span><span class="c">'+x.r.laps.length+'</span></div>'}).join('');
+$('list').innerHTML=order().map(function(r,i){return '<li class="r '+tc(r.name)+'"><span class="pos">'+(i+1)+'</span><span class="nm">'+esc(r.name)+'<br><span class="hint">'+dist(r.laps.length*lapOf(S.cur))+'</span></span><span class="lp">'+r.laps.length+'</span></li>'}).join('');
 var laps=S.runners.reduce(function(a,r){return a+r.laps.length},0),m=LV.reduce(function(a,l){return a+lapsOf(l)*lapOf(l)},0);
 $('km').textContent=m<1000?nf(m,0):nf(m/1000,2);$('unit').textContent=m<1000?'mètres parcourus':'km parcourus';
 var pct=Math.min(100,m/1000/S.goal*100);$('fill').style.width=pct+'%';$('bar').setAttribute('aria-valuenow',Math.round(pct));
