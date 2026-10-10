@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Compteur de tours</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f5f9;--card:#fff;--ink:#10233a;--mute:#5b6b7e;--line:#d5dde7;--acc:#0b5fff;--onacc:#fff;--gold:#f5b700;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1826;--card:#16263a;--ink:#eaf1fa;--mute:#93a5ba;--line:#2a3d55;--acc:#4f8bff;--onacc:#06152b}}
+:root[data-theme="dark"]{--bg:#0d1826;--card:#16263a;--ink:#eaf1fa;--mute:#93a5ba;--line:#2a3d55;--acc:#4f8bff;--onacc:#06152b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 Barlow,system-ui,sans-serif;max-width:720px;margin-inline:auto;padding:12px}
+h1{font:700 22px 'Barlow Condensed',sans-serif;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.clock{font:700 44px 'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums}
+button{font:600 16px Barlow,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 14px;cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button.p{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+.tabs{display:flex;gap:6px;margin:8px 0}.tabs button{flex:1;padding:10px 4px}.tabs .on,.chips .on{background:var(--ink);color:var(--bg)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px}.chips button{padding:6px 12px;white-space:nowrap;flex:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{position:relative;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;user-select:none;touch-action:manipulation;cursor:pointer}
+.tile:active{border-color:var(--acc);transform:scale(.98)}
+.tile .n{font-weight:600;overflow-wrap:anywhere;padding-right:32px}
+.tile .c{font:700 56px/1 'Barlow Condensed',sans-serif}
+.undo{position:absolute;top:6px;right:6px;padding:4px 9px;font-size:14px}
+ol{list-style:none;padding:0;margin:0}
+li.r{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px}
+li.r .pos{font:700 30px 'Barlow Condensed',sans-serif;width:36px}
+li.r .nm{flex:1;font-weight:600}
+li.r .lp{font:700 30px 'Barlow Condensed',sans-serif}
+li.r:nth-child(1) .pos{color:var(--gold)}
+textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:16px Barlow,sans-serif;padding:10px}
+input{font:16px Barlow,sans-serif;width:120px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);padding:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hint{color:var(--mute);font-size:14px}
+.big{text-align:center;padding:4vh 0 3vh}
+.km{font:700 min(34vw,200px)/1 'Barlow Condensed',sans-serif;color:var(--acc);font-variant-numeric:tabular-nums}
+.unit{font:600 min(8vw,44px)/1.1 'Barlow Condensed',sans-serif}
+.sub{color:var(--mute);margin-top:10px}
+.bar{height:28px;border-radius:14px;background:var(--line);overflow:hidden;margin:0 4px}
+#fill{height:100%;width:0;background:var(--acc);transition:width .4s}
+.goal{text-align:center;font-weight:600;margin:10px 0 18px}
+.lv{display:flex;align-items:center;gap:10px;margin-bottom:8px}.lv b{width:64px;font:700 20px 'Barlow Condensed',sans-serif}
+.lv .t{flex:1;height:14px;border-radius:7px;background:var(--line);overflow:hidden}.lv .t i{display:block;height:100%;background:var(--acc)}
+.lv span{width:96px;text-align:right;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><h1>Compteur de tours</h1><div class="clock" id="clock">00:00</div></div>
+<div class="row" style="margin:0 0 4px"><button class="p" id="go">Démarrer</button><button id="stop" hidden>Arrêter</button><span class="hint" id="rl" style="align-self:center"></span></div>
+<div class="tabs"><button data-v="count" class="on">Tours</button><button data-v="rank">Classement</button><button data-v="dist">Distance</button><button data-v="setup">Coureurs</button></div>
+<div class="chips" id="chips" aria-label="Niveau"></div>
+
+<section id="count"><div class="grid" id="tiles"></div><p class="hint" id="empty" hidden>Aucun coureur dans ce niveau. Ajoutez les noms dans l'onglet Coureurs.</p></section>
+<section id="rank" hidden><ol id="list"></ol><div class="row"><button id="copy">Copier le classement</button></div><p class="hint">À nombre de tours égal, celui qui a fini son dernier tour en premier est devant.</p></section>
+<section id="dist" hidden><div class="big"><div class="km" id="km">0</div><div class="unit" id="unit">km parcourus</div><div class="sub" id="sub"></div></div>
+<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><div id="fill"></div></div><p class="goal" id="goal"></p><div id="bylv"></div></section>
+<section id="setup" hidden>
+<p class="hint" id="sl"></p>
+<textarea id="names" placeholder="Emma&#10;Lucas&#10;Nour"></textarea>
+<div class="row"><button class="p" id="save">Enregistrer ce niveau</button><button id="reset">Réinitialiser ce niveau</button></div>
+<p style="margin-top:14px"><label for="lap" id="lapl">Longueur d'un tour (mètres)</label><br><input id="lap" type="number" min="1" value="500" inputmode="numeric"></p>
+<p><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
+<p class="hint" id="msg"></p>
+</section>
+
+<script>
+var LV=['PS','MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
+var S={runners:[],races:{},lapM:500,lapBy:{},goal:1800,cur:'PS'},K='lapcounter-v2',V='count';
+function $(i){return document.getElementById(i)}
+function load(){try{var t=localStorage.getItem(K);if(t)S=JSON.parse(t)}catch(e){}
+if(!S.lapM)S.lapM=500;if(!S.goal)S.goal=1800;if(!S.races)S.races={};if(!S.lapBy)S.lapBy={};if(LV.indexOf(S.cur)<0)S.cur=LV[0];
+S.runners.forEach(function(r){if(!r.level)r.level=LV[0]})}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+function race(){return S.races[S.cur]||(S.races[S.cur]={start:null,end:null})}
+function fmt(ms){var s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);s%=60;return (h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+function nf(x,d){return x.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:d})}
+function dist(m){return m<1000?nf(m,0)+' m':nf(m/1000,2)+' km'}
+function esc(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ofLevel(l){var o=[];S.runners.forEach(function(r,i){if(r.level===l)o.push({r:r,i:i})});return o}
+function lapOf(l){return S.lapBy[l]||S.lapM}
+function lapsOf(l){return ofLevel(l).reduce(function(a,x){return a+x.r.laps.length},0)}
+function tick(){var q=race(),e=q.start?(q.end||Date.now())-q.start:0;$('clock').textContent=fmt(e);$('rl').textContent='Course '+S.cur;
+$('go').hidden=!!q.start&&!q.end;$('stop').hidden=!q.start||!!q.end;$('go').textContent=q.end?'Reprendre':'Démarrer'}
+function render(){
+$('chips').innerHTML=LV.map(function(l){return '<button data-l="'+l+'" class="'+(l===S.cur?'on':'')+'">'+l+' ('+ofLevel(l).length+')</button>'}).join('');
+$('chips').hidden=V==='dist';
+var cur=ofLevel(S.cur);
+$('empty').hidden=cur.length>0;
+$('tiles').innerHTML=cur.map(function(x){return '<div class="tile" role="button" tabindex="0" data-i="'+x.i+'"><button class="undo" data-u="'+x.i+'" aria-label="Retirer un tour pour '+esc(x.r.name)+'">-1</button><span class="n">'+esc(x.r.name)+'</span><span class="c">'+x.r.laps.length+'</span></div>'}).join('');
+$('list').innerHTML=order().map(function(r,i){return '<li class="r"><span class="pos">'+(i+1)+'</span><span class="nm">'+esc(r.name)+'<br><span class="hint">'+dist(r.laps.length*lapOf(S.cur))+'</span></span><span class="lp">'+r.laps.length+'</span></li>'}).join('');
+var laps=S.runners.reduce(function(a,r){return a+r.laps.length},0),m=LV.reduce(function(a,l){return a+lapsOf(l)*lapOf(l)},0);
+$('km').textContent=m<1000?nf(m,0):nf(m/1000,2);$('unit').textContent=m<1000?'mètres parcourus':'km parcourus';
+var pct=Math.min(100,m/1000/S.goal*100);$('fill').style.width=pct+'%';$('bar').setAttribute('aria-valuenow',Math.round(pct));
+$('goal').textContent=(m/1000>=S.goal?'Objectif atteint ! ':nf(pct,1)+' % de l\'objectif · ')+'objectif '+nf(S.goal,0)+' km'+(m/1000<S.goal?' · encore '+nf(S.goal-m/1000,2)+' km':'');
+$('sub').textContent=laps+' tours · '+S.runners.length+' coureurs · '+LV.filter(function(l){return ofLevel(l).length}).length+' niveaux';
+var mx=Math.max.apply(null,LV.map(lapsOf).concat([1]));
+$('bylv').innerHTML=LV.filter(function(l){return ofLevel(l).length}).map(function(l){var n=lapsOf(l);return '<div class="lv"><b>'+l+'</b><div class="t"><i style="width:'+(n/mx*100)+'%"></i></div><span>'+dist(n*lapOf(l))+'</span></div>'}).join('');
+tick()}
+function order(){return ofLevel(S.cur).map(function(x){return x.r}).sort(function(a,b){var d=b.laps.length-a.laps.length;if(d)return d;return (a.laps[a.laps.length-1]||0)-(b.laps[b.laps.length-1]||0)})}
+function fillSetup(){$('sl').textContent='Un coureur par ligne (prénom ou dossard) pour le niveau '+S.cur+'.';
+$('names').value=ofLevel(S.cur).map(function(x){return x.r.name}).join('\n');$('lap').value=lapOf(S.cur);$('lapl').textContent='Longueur d\'un tour en '+S.cur+' (mètres)';$('goalin').value=S.goal}
+$('chips').addEventListener('click',function(e){var b=e.target.closest('[data-l]');if(!b)return;S.cur=b.dataset.l;save();render();if(V==='setup')fillSetup()});
+$('tiles').addEventListener('click',function(e){
+var u=e.target.closest('[data-u]');
+if(u){S.runners[u.dataset.u].laps.pop();save();render();return}
+var t=e.target.closest('.tile');if(!t)return;
+var q=race();if(!q.start)q.start=Date.now();else if(q.end){q.start+=Date.now()-q.end}q.end=null;
+S.runners[t.dataset.i].laps.push(Date.now());save();render();
+if(navigator.vibrate)navigator.vibrate(30)});
+$('go').onclick=function(){var q=race();if(q.end){q.start+=Date.now()-q.end;q.end=null}else q.start=Date.now();save();tick()};
+$('stop').onclick=function(){race().end=Date.now();save();tick()};
+document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){V=b.dataset.v;
+document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});
+['count','rank','dist','setup'].forEach(function(v){$(v).hidden=v!==V});
+if(V==='setup')fillSetup();render()}});
+$('save').onclick=function(){var names=$('names').value.split('\n').map(function(x){return x.trim()}).filter(Boolean),old={};
+ofLevel(S.cur).forEach(function(x){old[x.r.name]=x.r.laps});
+S.runners=S.runners.filter(function(r){return r.level!==S.cur}).concat(names.map(function(n){return{name:n,level:S.cur,laps:old[n]||[]}}));
+var lm=parseInt($('lap').value,10);if(lm>0)S.lapBy[S.cur]=lm;var gl=parseFloat($('goalin').value);if(gl>0)S.goal=gl;
+save();render();$('msg').textContent=names.length+' coureurs enregistrés en '+S.cur+' · tour = '+lapOf(S.cur)+' m · objectif '+nf(S.goal,0)+' km.'};
+var armed=false;
+$('reset').onclick=function(){if(!armed){armed=true;$('reset').textContent='Appuyez encore : efface les tours de '+S.cur;
+setTimeout(function(){armed=false;$('reset').textContent='Réinitialiser ce niveau'},3000);return}
+armed=false;ofLevel(S.cur).forEach(function(x){x.r.laps=[]});S.races[S.cur]={start:null,end:null};save();render();$('reset').textContent='Réinitialiser ce niveau'};
+$('copy').onclick=function(){var t='Classement '+S.cur+'\n'+order().map(function(r,i){return (i+1)+'. '+r.name+' - '+r.laps.length+' tours ('+dist(r.laps.length*lapOf(S.cur))+')'}).join('\n');
+try{navigator.clipboard.writeText(t);$('copy').textContent='Copié'}catch(e){window.prompt('Copier :',t)}
+setTimeout(function(){$('copy').textContent='Copier le classement'},1500)};
+load();render();setInterval(tick,500);
+</script>
+</body>
+</html>
