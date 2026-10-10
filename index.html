@@ -89,11 +89,12 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 
 <footer class="ft">150 ANS<span>Anna de Noailles</span></footer>
 <script>
+var DEFAULT_SHEET='https://script.google.com/macros/s/AKfycbwxB6momcyiXhc7a3IfPJdYxOhSVm2uj_FSRx9XqrkJg4HisEpg0Y1-2qWkPdiSM50/exec';
 var LV=['PS/MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
 var S={runners:[],races:{},lapM:500,lapBy:{},goal:1800,cur:'PS'},K='lapcounter-v2',V='count';
 function $(i){return document.getElementById(i)}
 function load(){try{var t=localStorage.getItem(K);if(t)S=JSON.parse(t)}catch(e){}
-if(!S.lapM)S.lapM=500;if(!S.goal)S.goal=1800;if(!S.races)S.races={};if(!S.lapBy)S.lapBy={};S.runners.forEach(function(r){if(r.level==='PS'||r.level==='MS')r.level='PS/MS'});
+if(!S.lapM)S.lapM=500;if(!S.goal)S.goal=1800;if(!S.races)S.races={};if(!S.lapBy)S.lapBy={};if(S.sheetUrl===undefined)S.sheetUrl=DEFAULT_SHEET;S.runners.forEach(function(r){if(r.level==='PS'||r.level==='MS')r.level='PS/MS'});
 if(S.cur==='PS'||S.cur==='MS')S.cur='PS/MS';
 if(S.races.PS&&!S.races['PS/MS'])S.races['PS/MS']=S.races.PS;if(S.lapBy.PS&&!S.lapBy['PS/MS'])S.lapBy['PS/MS']=S.lapBy.PS;
 var sn={};S.runners=S.runners.filter(function(r){if(r.level!=='PS/MS')return true;var k=sn[r.name];if(k){k.laps=k.laps.concat(r.laps).sort(function(a,b){return a-b});return false}sn[r.name]=r;return true});
@@ -163,12 +164,12 @@ fetch(S.sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/pla
 .then(function(){S.outbox=S.outbox.slice(b.length);lastDone=Date.now();save();sending=false;pend();if(S.outbox.length)flushOut()})
 .catch(function(){sending=false;pend()})}
 function hashUrl(){var m=location.hash.match(/sheet=([^&]+)/);if(m){try{S.sheetUrl=decodeURIComponent(m[1]);save()}catch(e){}history.replaceState(null,'',location.pathname+location.search)}}
-var lastDone=0,polling=false,conn=null;
-function setConn(ok){conn=ok?new Date():false;pend()}
+var lastDone=0,polling=false,conn=null,connWhy='';
+function setConn(ok,why){conn=ok?new Date():false;connWhy=why||'';pend()}
 function syncTxt(){if(!S.sheetUrl)return'';var n=(S.outbox||[]).length;
 return conn===false?' · hors ligne'+(n?' ('+n+' en attente)':''):(n?' · '+n+' en attente':(conn?' · synchronisé':''))}
 function pend(){var el=$('sheetst');if(!el)return;var n=(S.outbox||[]).length;
-el.textContent=!S.sheetUrl?'Pas de Google Sheet configuré.':(n?n+' envoi(s) en attente. ':'')+(conn===false?'Hors ligne ou adresse incorrecte.':(conn?'Synchronisé à '+conn.toLocaleTimeString('fr-FR')+'.':'Connexion…'))}
+el.textContent=!S.sheetUrl?'Pas de Google Sheet configuré.':(n?n+' envoi(s) en attente. ':'')+(conn===false?(connWhy||'Hors ligne ou adresse incorrecte.'):(conn?'Synchronisé à '+conn.toLocaleTimeString('fr-FR')+'.':'Connexion…'))}
 function raceSync(l){if(!S.sheetUrl)return;var q=S.races[l]||{};
 S.outbox=(S.outbox||[]).filter(function(o){return !(o.k==='race'&&o.level===l)}).concat([{k:'race',level:l,start:q.start||null,end:q.end||null}]);save();flushOut()}
 function applyState(d){
@@ -179,9 +180,10 @@ S.races={};Object.keys(d.races||{}).forEach(function(l){S.races[l]={start:d.race
 if(LV.indexOf(S.cur)<0)S.cur=LV[0];
 save();setConn(true);render()}
 function poll(){if(!S.sheetUrl||polling||document.hidden)return;polling=true;var t0=Date.now();
-fetch(S.sheetUrl+(S.sheetUrl.indexOf('?')<0?'?':'&')+'t='+t0).then(function(r){return r.json()}).then(function(d){
+fetch(S.sheetUrl+(S.sheetUrl.indexOf('?')<0?'?':'&')+'t='+t0).then(function(r){return r.text()}).then(function(t){
+var d;try{d=JSON.parse(t)}catch(e){polling=false;setConn(false,'Google répond, mais pas avec les données attendues : mettez le déploiement à jour (nouvelle version) et réglez l\'accès sur « Tout le monde ».');return}
 polling=false;if(sending||(S.outbox&&S.outbox.length)||t0<lastDone+2000){setConn(true);return}applyState(d)})
-.catch(function(){polling=false;setConn(false)})}
+.catch(function(){polling=false;setConn(false,'Impossible de joindre l\'adresse : vérifiez qu\'elle est complète et se termine par /exec.')})}
 $('sheeturl').onchange=function(){S.sheetUrl=this.value.trim();S.srvOn=false;conn=null;save();pend();render();poll()};
 $('sheettest').onclick=function(){S.sheetUrl=$('sheeturl').value.trim();save();logLap(S.cur,'(test)','test',0,0);$('msg').textContent=S.sheetUrl?'Ligne de test envoyée : vérifiez l\'onglet Tours du Google Sheet, puis supprimez-la.':'Collez d\'abord l\'adresse du Google Sheet.'};
 load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);poll();setInterval(poll,5000);document.addEventListener('visibilitychange',poll);
