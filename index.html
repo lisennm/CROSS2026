@@ -54,6 +54,7 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 .lv span{width:96px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .ft{text-align:center;margin-top:26px;padding-top:12px;border-top:2px solid var(--acc2);color:var(--ink);font:700 13px Montserrat,sans-serif;letter-spacing:.18em}
 .ft span{font:400 22px 'Kaushan Script',cursive;letter-spacing:0;color:var(--acc);margin-left:6px}
+.sharedonly{display:none}.shared .sharedonly{display:block}.shared .localonly{display:none}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -74,11 +75,12 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 <section id="dist" hidden><div class="big"><div class="km" id="km">0</div><div class="unit" id="unit">km parcourus</div><div class="sub" id="sub"></div></div>
 <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><div id="fill"></div></div><p class="goal" id="goal"></p><div id="bylv"></div></section>
 <section id="setup" hidden>
-<p class="hint" id="sl"></p>
-<textarea id="names" placeholder="Emma&#10;Lucas&#10;Nour"></textarea>
-<div class="row"><button class="p" id="save">Enregistrer ce niveau</button><button id="reset">Réinitialiser ce niveau</button></div>
-<p style="margin-top:14px"><label for="lap" id="lapl">Longueur d'un tour (mètres)</label><br><input id="lap" type="number" min="1" value="500" inputmode="numeric"></p>
-<p><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
+<p class="hint localonly" id="sl"></p>
+<textarea class="localonly" id="names" placeholder="Emma&#10;Lucas&#10;Nour"></textarea>
+<div class="row localonly"><button class="p" id="save">Enregistrer ce niveau</button><button id="reset">Réinitialiser ce niveau</button></div>
+<p class="localonly" style="margin-top:14px"><label for="lap" id="lapl">Longueur d'un tour (mètres)</label><br><input id="lap" type="number" min="1" value="500" inputmode="numeric"></p>
+<p class="localonly"><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
+<p class="hint sharedonly">Mode partagé : les coureurs, la longueur des tours et l'objectif se modifient directement dans le Google Sheet (onglets Coureurs et Réglages).</p>
 <p><label for="sheeturl">Adresse du Google Sheet (lien Apps Script, facultatif)</label><br><input id="sheeturl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></p>
 <div class="row"><button id="sheettest">Tester l'envoi</button></div>
 <p class="hint" id="sheetst"></p>
@@ -106,9 +108,10 @@ function esc(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&
 function ofLevel(l){var o=[];S.runners.forEach(function(r,i){if(r.level===l)o.push({r:r,i:i})});return o}
 function lapOf(l){return S.lapBy[l]||S.lapM}
 function lapsOf(l){return ofLevel(l).reduce(function(a,x){return a+x.r.laps.length},0)}
-function tick(){var q=race(),e=q.start?(q.end||Date.now())-q.start:0;$('clock').textContent=fmt(e);$('rl').textContent='Course '+S.cur;
+function tick(){var q=race(),e=q.start?(q.end||Date.now())-q.start:0;$('clock').textContent=fmt(e);$('rl').textContent='Course '+S.cur+syncTxt();
 $('go').hidden=!!q.start&&!q.end;$('stop').hidden=!q.start||!!q.end;$('go').textContent=q.end?'Reprendre':'Démarrer'}
 function render(){
+document.body.classList.toggle('shared',!!(S.sheetUrl&&S.srvOn));
 $('chips').innerHTML=LV.map(function(l){return '<button data-l="'+l+'" class="'+(l===S.cur?'on':'')+'">'+l+' ('+ofLevel(l).length+')</button>'}).join('');
 $('chips').hidden=V==='dist';
 var cur=ofLevel(S.cur);
@@ -131,11 +134,11 @@ $('tiles').addEventListener('click',function(e){
 var u=e.target.closest('[data-u]');
 if(u){var ru=S.runners[u.dataset.u];if(ru.laps.length){ru.laps.pop();logLap(ru.level,ru.name,'annulation',ru.laps.length,-1)}save();render();return}
 var t=e.target.closest('.tile');if(!t)return;
-var q=race();if(!q.start)q.start=Date.now();else if(q.end){q.start+=Date.now()-q.end}q.end=null;
+var q=race(),ch=!q.start||!!q.end;if(!q.start)q.start=Date.now();else if(q.end){q.start+=Date.now()-q.end}q.end=null;if(ch)raceSync(S.cur);
 var rr=S.runners[t.dataset.i];rr.laps.push(Date.now());logLap(rr.level,rr.name,'tour',rr.laps.length,1);save();render();
 if(navigator.vibrate)navigator.vibrate(30)});
-$('go').onclick=function(){var q=race();if(q.end){q.start+=Date.now()-q.end;q.end=null}else q.start=Date.now();save();tick()};
-$('stop').onclick=function(){race().end=Date.now();save();tick()};
+$('go').onclick=function(){var q=race();if(q.end){q.start+=Date.now()-q.end;q.end=null}else q.start=Date.now();raceSync(S.cur);save();tick()};
+$('stop').onclick=function(){race().end=Date.now();raceSync(S.cur);save();tick()};
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){V=b.dataset.v;
 document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});
 ['count','rank','dist','setup'].forEach(function(v){$(v).hidden=v!==V});
@@ -148,7 +151,7 @@ save();render();$('msg').textContent=names.length+' coureurs enregistrés en '+S
 var armed=false;
 $('reset').onclick=function(){if(!armed){armed=true;$('reset').textContent='Appuyez encore : efface les tours de '+S.cur;
 setTimeout(function(){armed=false;$('reset').textContent='Réinitialiser ce niveau'},3000);return}
-armed=false;ofLevel(S.cur).forEach(function(x){if(x.r.laps.length)logLap(x.r.level,x.r.name,'remise à zéro',0,-x.r.laps.length);x.r.laps=[]});S.races[S.cur]={start:null,end:null};save();render();$('reset').textContent='Réinitialiser ce niveau'};
+armed=false;ofLevel(S.cur).forEach(function(x){if(x.r.laps.length)logLap(x.r.level,x.r.name,'remise à zéro',0,-x.r.laps.length);x.r.laps=[]});S.races[S.cur]={start:null,end:null};raceSync(S.cur);save();render();$('reset').textContent='Réinitialiser ce niveau'};
 $('copy').onclick=function(){var t='Classement '+S.cur+'\n'+order().map(function(r,i){return (i+1)+'. '+r.name+' - '+r.laps.length+' tours ('+dist(r.laps.length*lapOf(S.cur))+')'}).join('\n');
 try{navigator.clipboard.writeText(t);$('copy').textContent='Copié'}catch(e){window.prompt('Copier :',t)}
 setTimeout(function(){$('copy').textContent='Copier le classement'},1500)};
@@ -157,13 +160,31 @@ S.outbox=(S.outbox||[]).concat([{t:Date.now(),level:level,name:name,ev:ev,n:n,d:
 var sending=false;
 function flushOut(){if(sending||!S.sheetUrl||!S.outbox||!S.outbox.length)return;sending=true;var b=S.outbox.slice(0,50);
 fetch(S.sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({rows:b})})
-.then(function(){S.outbox=S.outbox.slice(b.length);save();sending=false;pend();if(S.outbox.length)flushOut()})
+.then(function(){S.outbox=S.outbox.slice(b.length);lastDone=Date.now();save();sending=false;pend();if(S.outbox.length)flushOut()})
 .catch(function(){sending=false;pend()})}
-function pend(){var el=$('sheetst');if(!el)return;var n=(S.outbox||[]).length;
-el.textContent=S.sheetUrl?(n?n+' envoi(s) en attente vers le Google Sheet.':'Google Sheet configuré, aucun envoi en attente.'):'Pas de Google Sheet configuré.'}
 function hashUrl(){var m=location.hash.match(/sheet=([^&]+)/);if(m){try{S.sheetUrl=decodeURIComponent(m[1]);save()}catch(e){}history.replaceState(null,'',location.pathname+location.search)}}
+var lastDone=0,polling=false,conn=null;
+function setConn(ok){conn=ok?new Date():false;pend()}
+function syncTxt(){if(!S.sheetUrl)return'';var n=(S.outbox||[]).length;
+return conn===false?' · hors ligne'+(n?' ('+n+' en attente)':''):(n?' · '+n+' en attente':(conn?' · synchronisé':''))}
+function pend(){var el=$('sheetst');if(!el)return;var n=(S.outbox||[]).length;
+el.textContent=!S.sheetUrl?'Pas de Google Sheet configuré.':(n?n+' envoi(s) en attente. ':'')+(conn===false?'Hors ligne ou adresse incorrecte.':(conn?'Synchronisé à '+conn.toLocaleTimeString('fr-FR')+'.':'Connexion…'))}
+function raceSync(l){if(!S.sheetUrl)return;var q=S.races[l]||{};
+S.outbox=(S.outbox||[]).filter(function(o){return !(o.k==='race'&&o.level===l)}).concat([{k:'race',level:l,start:q.start||null,end:q.end||null}]);save();flushOut()}
+function applyState(d){
+if(!S.srvOn){S.localBak=S.runners;S.srvOn=true}
+if(d.goal)S.goal=d.goal;S.lapBy=d.lap||{};
+S.runners=(d.runners||[]).map(function(r){return{name:r.n,level:r.l,laps:new Array(r.c).fill(r.t||0)}});
+S.races={};Object.keys(d.races||{}).forEach(function(l){S.races[l]={start:d.races[l].s||null,end:d.races[l].e||null}});
+if(LV.indexOf(S.cur)<0)S.cur=LV[0];
+save();setConn(true);render()}
+function poll(){if(!S.sheetUrl||polling||document.hidden)return;polling=true;var t0=Date.now();
+fetch(S.sheetUrl+(S.sheetUrl.indexOf('?')<0?'?':'&')+'t='+t0).then(function(r){return r.json()}).then(function(d){
+polling=false;if(sending||(S.outbox&&S.outbox.length)||t0<lastDone+2000){setConn(true);return}applyState(d)})
+.catch(function(){polling=false;setConn(false)})}
+$('sheeturl').onchange=function(){S.sheetUrl=this.value.trim();S.srvOn=false;conn=null;save();pend();render();poll()};
 $('sheettest').onclick=function(){S.sheetUrl=$('sheeturl').value.trim();save();logLap(S.cur,'(test)','test',0,0);$('msg').textContent=S.sheetUrl?'Ligne de test envoyée : vérifiez l\'onglet Tours du Google Sheet, puis supprimez-la.':'Collez d\'abord l\'adresse du Google Sheet.'};
-load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);
+load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);poll();setInterval(poll,5000);document.addEventListener('visibilitychange',poll);
 </script>
 </body>
 </html>
