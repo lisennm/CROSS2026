@@ -79,6 +79,7 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 <textarea class="localonly" id="names" placeholder="Emma&#10;Lucas&#10;Nour"></textarea>
 <div class="row localonly"><button class="p" id="save">Enregistrer ce niveau</button><button id="reset">Réinitialiser ce niveau</button></div>
 <p class="localonly" style="margin-top:14px"><label for="lap" id="lapl">Longueur d'un tour (mètres)</label><br><input id="lap" type="number" min="1" value="500" inputmode="numeric"></p>
+<p class="localonly"><label for="partin">Nombre de participants (élèves)</label><br><input id="partin" type="number" min="0" inputmode="numeric"></p>
 <p class="localonly"><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
 <p class="hint sharedonly">Mode partagé : les coureurs, la longueur des tours et l'objectif se modifient directement dans le Google Sheet (onglets Coureurs et Réglages).</p>
 <p><label for="sheeturl">Adresse du Google Sheet (lien Apps Script, facultatif)</label><br><input id="sheeturl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></p>
@@ -87,7 +88,7 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 <p class="hint" id="msg"></p>
 </section>
 
-<footer class="ft">150 ANS<span>Anna de Noailles</span></footer>
+<footer class="ft">150 ANS<span>Anna de Noailles</span><br><small style="font-weight:500;letter-spacing:0;color:var(--mute)">version 7 · Google Sheet intégré</small></footer>
 <script>
 var DEFAULT_SHEET='https://script.google.com/macros/s/AKfycbwxB6momcyiXhc7a3IfPJdYxOhSVm2uj_FSRx9XqrkJg4HisEpg0Y1-2qWkPdiSM50/exec';
 var LV=['PS/MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
@@ -123,13 +124,13 @@ var laps=S.runners.reduce(function(a,r){return a+r.laps.length},0),m=LV.reduce(f
 $('km').textContent=m<1000?nf(m,0):nf(m/1000,2);$('unit').textContent=m<1000?'mètres parcourus':'km parcourus';
 var pct=Math.min(100,m/1000/S.goal*100);$('fill').style.width=pct+'%';$('bar').setAttribute('aria-valuenow',Math.round(pct));
 $('goal').textContent=(m/1000>=S.goal?'Objectif atteint ! ':nf(pct,1)+' % de l\'objectif · ')+'objectif '+nf(S.goal,0)+' km'+(m/1000<S.goal?' · encore '+nf(S.goal-m/1000,2)+' km':'');
-$('sub').textContent=laps+' tours · '+S.runners.length+' coureurs · '+LV.filter(function(l){return ofLevel(l).length}).length+' niveaux';
+$('sub').textContent=laps+' tours · '+(S.participants>0?nf(S.participants,0)+' participants':S.runners.length+' équipes')+' · '+LV.filter(function(l){return ofLevel(l).length}).length+' niveaux';
 var mx=Math.max.apply(null,LV.map(lapsOf).concat([1]));
 $('bylv').innerHTML=LV.filter(function(l){return ofLevel(l).length}).map(function(l){var n=lapsOf(l);return '<div class="lv"><b>'+l+'</b><div class="t"><i style="width:'+(n/mx*100)+'%"></i></div><span>'+dist(n*lapOf(l))+'</span></div>'}).join('');
 tick()}
 function order(){return ofLevel(S.cur).map(function(x){return x.r}).sort(function(a,b){var d=b.laps.length-a.laps.length;if(d)return d;return (a.laps[a.laps.length-1]||0)-(b.laps[b.laps.length-1]||0)})}
 function fillSetup(){$('sl').textContent='Un coureur par ligne (prénom ou dossard) pour le niveau '+S.cur+'.';
-$('names').value=ofLevel(S.cur).map(function(x){return x.r.name}).join('\n');$('lap').value=lapOf(S.cur);$('lapl').textContent='Longueur d\'un tour en '+S.cur+' (mètres)';$('goalin').value=S.goal;$('sheeturl').value=S.sheetUrl||'';pend()}
+$('names').value=ofLevel(S.cur).map(function(x){return x.r.name}).join('\n');$('lap').value=lapOf(S.cur);$('lapl').textContent='Longueur d\'un tour en '+S.cur+' (mètres)';$('goalin').value=S.goal;$('sheeturl').value=S.sheetUrl||'';$('partin').value=S.participants||'';pend()}
 $('chips').addEventListener('click',function(e){var b=e.target.closest('[data-l]');if(!b)return;S.cur=b.dataset.l;save();render();if(V==='setup')fillSetup()});
 $('tiles').addEventListener('click',function(e){
 var u=e.target.closest('[data-u]');
@@ -147,7 +148,7 @@ if(V==='setup')fillSetup();render()}});
 $('save').onclick=function(){var names=$('names').value.split('\n').map(function(x){return x.trim()}).filter(Boolean),old={};
 ofLevel(S.cur).forEach(function(x){old[x.r.name]=x.r.laps});
 S.runners=S.runners.filter(function(r){return r.level!==S.cur}).concat(names.map(function(n){return{name:n,level:S.cur,laps:old[n]||[]}}));
-var lm=parseInt($('lap').value,10);if(lm>0)S.lapBy[S.cur]=lm;var gl=parseFloat($('goalin').value);if(gl>0)S.goal=gl;S.sheetUrl=$('sheeturl').value.trim();
+var lm=parseInt($('lap').value,10);if(lm>0)S.lapBy[S.cur]=lm;var gl=parseFloat($('goalin').value);if(gl>0)S.goal=gl;var pn=parseInt($('partin').value,10);S.participants=pn>0?pn:0;S.sheetUrl=$('sheeturl').value.trim();
 save();render();$('msg').textContent=names.length+' coureurs enregistrés en '+S.cur+' · tour = '+lapOf(S.cur)+' m · objectif '+nf(S.goal,0)+' km.'};
 var armed=false;
 $('reset').onclick=function(){if(!armed){armed=true;$('reset').textContent='Appuyez encore : efface les tours de '+S.cur;
@@ -174,7 +175,7 @@ function raceSync(l){if(!S.sheetUrl)return;var q=S.races[l]||{};
 S.outbox=(S.outbox||[]).filter(function(o){return !(o.k==='race'&&o.level===l)}).concat([{k:'race',level:l,start:q.start||null,end:q.end||null}]);save();flushOut()}
 function applyState(d){
 if(!S.srvOn){S.localBak=S.runners;S.srvOn=true}
-if(d.goal)S.goal=d.goal;S.lapBy=d.lap||{};
+if(d.goal)S.goal=d.goal;S.participants=d.p||0;S.lapBy=d.lap||{};
 S.runners=(d.runners||[]).map(function(r){return{name:r.n,level:r.l,laps:new Array(r.c).fill(r.t||0)}});
 S.races={};Object.keys(d.races||{}).forEach(function(l){S.races[l]={start:d.races[l].s||null,end:d.races[l].e||null}});
 if(LV.indexOf(S.cur)<0)S.cur=LV[0];
