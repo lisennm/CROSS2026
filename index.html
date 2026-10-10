@@ -79,16 +79,23 @@ input{font:500 16px Montserrat,sans-serif;width:120px;border:2px solid var(--lin
 <div class="row"><button class="p" id="save">Enregistrer ce niveau</button><button id="reset">Réinitialiser ce niveau</button></div>
 <p style="margin-top:14px"><label for="lap" id="lapl">Longueur d'un tour (mètres)</label><br><input id="lap" type="number" min="1" value="500" inputmode="numeric"></p>
 <p><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
+<p><label for="sheeturl">Adresse du Google Sheet (lien Apps Script, facultatif)</label><br><input id="sheeturl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></p>
+<div class="row"><button id="sheettest">Tester l'envoi</button></div>
+<p class="hint" id="sheetst"></p>
 <p class="hint" id="msg"></p>
 </section>
 
 <footer class="ft">150 ANS<span>Anna de Noailles</span></footer>
 <script>
-var LV=['PS','MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
+var LV=['PS/MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
 var S={runners:[],races:{},lapM:500,lapBy:{},goal:1800,cur:'PS'},K='lapcounter-v2',V='count';
 function $(i){return document.getElementById(i)}
 function load(){try{var t=localStorage.getItem(K);if(t)S=JSON.parse(t)}catch(e){}
-if(!S.lapM)S.lapM=500;if(!S.goal)S.goal=1800;if(!S.races)S.races={};if(!S.lapBy)S.lapBy={};if(LV.indexOf(S.cur)<0)S.cur=LV[0];
+if(!S.lapM)S.lapM=500;if(!S.goal)S.goal=1800;if(!S.races)S.races={};if(!S.lapBy)S.lapBy={};S.runners.forEach(function(r){if(r.level==='PS'||r.level==='MS')r.level='PS/MS'});
+if(S.cur==='PS'||S.cur==='MS')S.cur='PS/MS';
+if(S.races.PS&&!S.races['PS/MS'])S.races['PS/MS']=S.races.PS;if(S.lapBy.PS&&!S.lapBy['PS/MS'])S.lapBy['PS/MS']=S.lapBy.PS;
+var sn={};S.runners=S.runners.filter(function(r){if(r.level!=='PS/MS')return true;var k=sn[r.name];if(k){k.laps=k.laps.concat(r.laps).sort(function(a,b){return a-b});return false}sn[r.name]=r;return true});
+if(LV.indexOf(S.cur)<0)S.cur=LV[0];
 S.runners.forEach(function(r){if(!r.level)r.level=LV[0]})}
 function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
 function race(){return S.races[S.cur]||(S.races[S.cur]={start:null,end:null})}
@@ -118,14 +125,14 @@ $('bylv').innerHTML=LV.filter(function(l){return ofLevel(l).length}).map(functio
 tick()}
 function order(){return ofLevel(S.cur).map(function(x){return x.r}).sort(function(a,b){var d=b.laps.length-a.laps.length;if(d)return d;return (a.laps[a.laps.length-1]||0)-(b.laps[b.laps.length-1]||0)})}
 function fillSetup(){$('sl').textContent='Un coureur par ligne (prénom ou dossard) pour le niveau '+S.cur+'.';
-$('names').value=ofLevel(S.cur).map(function(x){return x.r.name}).join('\n');$('lap').value=lapOf(S.cur);$('lapl').textContent='Longueur d\'un tour en '+S.cur+' (mètres)';$('goalin').value=S.goal}
+$('names').value=ofLevel(S.cur).map(function(x){return x.r.name}).join('\n');$('lap').value=lapOf(S.cur);$('lapl').textContent='Longueur d\'un tour en '+S.cur+' (mètres)';$('goalin').value=S.goal;$('sheeturl').value=S.sheetUrl||'';pend()}
 $('chips').addEventListener('click',function(e){var b=e.target.closest('[data-l]');if(!b)return;S.cur=b.dataset.l;save();render();if(V==='setup')fillSetup()});
 $('tiles').addEventListener('click',function(e){
 var u=e.target.closest('[data-u]');
-if(u){S.runners[u.dataset.u].laps.pop();save();render();return}
+if(u){var ru=S.runners[u.dataset.u];if(ru.laps.length){ru.laps.pop();logLap(ru.level,ru.name,'annulation',ru.laps.length,-1)}save();render();return}
 var t=e.target.closest('.tile');if(!t)return;
 var q=race();if(!q.start)q.start=Date.now();else if(q.end){q.start+=Date.now()-q.end}q.end=null;
-S.runners[t.dataset.i].laps.push(Date.now());save();render();
+var rr=S.runners[t.dataset.i];rr.laps.push(Date.now());logLap(rr.level,rr.name,'tour',rr.laps.length,1);save();render();
 if(navigator.vibrate)navigator.vibrate(30)});
 $('go').onclick=function(){var q=race();if(q.end){q.start+=Date.now()-q.end;q.end=null}else q.start=Date.now();save();tick()};
 $('stop').onclick=function(){race().end=Date.now();save();tick()};
@@ -136,16 +143,27 @@ if(V==='setup')fillSetup();render()}});
 $('save').onclick=function(){var names=$('names').value.split('\n').map(function(x){return x.trim()}).filter(Boolean),old={};
 ofLevel(S.cur).forEach(function(x){old[x.r.name]=x.r.laps});
 S.runners=S.runners.filter(function(r){return r.level!==S.cur}).concat(names.map(function(n){return{name:n,level:S.cur,laps:old[n]||[]}}));
-var lm=parseInt($('lap').value,10);if(lm>0)S.lapBy[S.cur]=lm;var gl=parseFloat($('goalin').value);if(gl>0)S.goal=gl;
+var lm=parseInt($('lap').value,10);if(lm>0)S.lapBy[S.cur]=lm;var gl=parseFloat($('goalin').value);if(gl>0)S.goal=gl;S.sheetUrl=$('sheeturl').value.trim();
 save();render();$('msg').textContent=names.length+' coureurs enregistrés en '+S.cur+' · tour = '+lapOf(S.cur)+' m · objectif '+nf(S.goal,0)+' km.'};
 var armed=false;
 $('reset').onclick=function(){if(!armed){armed=true;$('reset').textContent='Appuyez encore : efface les tours de '+S.cur;
 setTimeout(function(){armed=false;$('reset').textContent='Réinitialiser ce niveau'},3000);return}
-armed=false;ofLevel(S.cur).forEach(function(x){x.r.laps=[]});S.races[S.cur]={start:null,end:null};save();render();$('reset').textContent='Réinitialiser ce niveau'};
+armed=false;ofLevel(S.cur).forEach(function(x){if(x.r.laps.length)logLap(x.r.level,x.r.name,'remise à zéro',0,-x.r.laps.length);x.r.laps=[]});S.races[S.cur]={start:null,end:null};save();render();$('reset').textContent='Réinitialiser ce niveau'};
 $('copy').onclick=function(){var t='Classement '+S.cur+'\n'+order().map(function(r,i){return (i+1)+'. '+r.name+' - '+r.laps.length+' tours ('+dist(r.laps.length*lapOf(S.cur))+')'}).join('\n');
 try{navigator.clipboard.writeText(t);$('copy').textContent='Copié'}catch(e){window.prompt('Copier :',t)}
 setTimeout(function(){$('copy').textContent='Copier le classement'},1500)};
-load();render();setInterval(tick,500);
+function logLap(level,name,ev,n,d){if(!S.sheetUrl)return;
+S.outbox=(S.outbox||[]).concat([{t:Date.now(),level:level,name:name,ev:ev,n:n,d:d,m:d*lapOf(level)}]);save();pend();flushOut()}
+var sending=false;
+function flushOut(){if(sending||!S.sheetUrl||!S.outbox||!S.outbox.length)return;sending=true;var b=S.outbox.slice(0,50);
+fetch(S.sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({rows:b})})
+.then(function(){S.outbox=S.outbox.slice(b.length);save();sending=false;pend();if(S.outbox.length)flushOut()})
+.catch(function(){sending=false;pend()})}
+function pend(){var el=$('sheetst');if(!el)return;var n=(S.outbox||[]).length;
+el.textContent=S.sheetUrl?(n?n+' envoi(s) en attente vers le Google Sheet.':'Google Sheet configuré, aucun envoi en attente.'):'Pas de Google Sheet configuré.'}
+function hashUrl(){var m=location.hash.match(/sheet=([^&]+)/);if(m){try{S.sheetUrl=decodeURIComponent(m[1]);save()}catch(e){}history.replaceState(null,'',location.pathname+location.search)}}
+$('sheettest').onclick=function(){S.sheetUrl=$('sheeturl').value.trim();save();logLap(S.cur,'(test)','test',0,0);$('msg').textContent=S.sheetUrl?'Ligne de test envoyée : vérifiez l\'onglet Tours du Google Sheet, puis supprimez-la.':'Collez d\'abord l\'adresse du Google Sheet.'};
+load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);
 </script>
 </body>
 </html>
