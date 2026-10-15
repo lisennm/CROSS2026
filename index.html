@@ -75,6 +75,7 @@ li.r.t-rouge{border-left:12px solid #e0212f}li.r.t-bleu{border-left:12px solid #
 .st{flex:1;text-align:center;background:var(--card);border:2px solid var(--line);border-bottom:6px solid var(--acc2);border-radius:16px;padding:12px 8px}
 .st b{display:block;font:800 clamp(30px,9vw,48px)/1 Montserrat,sans-serif;color:var(--acc);font-variant-numeric:tabular-nums}
 .st span{font:700 12px Montserrat,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.adminonly{display:none}.admin .adminonly{display:block}.admin .row.adminonly{display:flex}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -107,13 +108,13 @@ li.r.t-rouge{border-left:12px solid #e0212f}li.r.t-bleu{border-left:12px solid #
 <p class="localonly"><label for="partin">Nombre de participants (élèves)</label><br><input id="partin" type="number" min="0" inputmode="numeric"></p>
 <p class="localonly"><label for="goalin">Objectif total (km)</label><br><input id="goalin" type="number" min="1" value="1800" inputmode="numeric"></p>
 <p class="hint sharedonly">Mode partagé : les coureurs, la longueur des tours et l'objectif se modifient directement dans le Google Sheet (onglets Coureurs et Réglages).</p>
-<p><label for="sheeturl">Adresse du Google Sheet (lien Apps Script, facultatif)</label><br><input id="sheeturl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></p>
-<div class="row"><button id="sheettest">Tester l'envoi</button></div>
+<p class="adminonly"><label for="sheeturl">Adresse du Google Sheet (lien Apps Script, facultatif)</label><br><input id="sheeturl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></p>
+<div class="row adminonly"><button id="sheettest">Tester l'envoi</button></div>
 <p class="hint" id="sheetst"></p>
 <p class="hint" id="msg"></p>
 </section>
 
-<footer class="ft">150 ANS<span>Anna de Noailles</span><br><small style="font-weight:500;letter-spacing:0;color:var(--mute)">version 7.6 · Google Sheet intégré</small></footer>
+<footer class="ft">150 ANS<span>Anna de Noailles</span><br><small style="font-weight:500;letter-spacing:0;color:var(--mute)">version 7.7 · Google Sheet intégré</small></footer>
 <script>
 var DEFAULT_SHEET='https://script.google.com/macros/s/AKfycbwxB6momcyiXhc7a3IfPJdYxOhSVm2uj_FSRx9XqrkJg4HisEpg0Y1-2qWkPdiSM50/exec';
 var LV=['PS/MS','GS','CP','CE1','CE2','CM1','CM2','6ème','5ème','4ème','3ème','Lycée'];
@@ -217,7 +218,7 @@ if(S.sheetUrl){S.outbox=(S.outbox||[]).concat([{k:'part',d:d,t:Date.now()}])}
 save();render();flushOut();if(navigator.vibrate)navigator.vibrate(30)}
 $('padd').onclick=function(){partAdd(1)};$('pdel').onclick=function(){partAdd(-1)};
 $('sheettest').onclick=function(){S.sheetUrl=$('sheeturl').value.trim();save();logLap(S.cur,'(test)','test',0,0);$('msg').textContent=S.sheetUrl?'Ligne de test envoyée : vérifiez l\'onglet Tours du Google Sheet, puis supprimez-la.':'Collez d\'abord l\'adresse du Google Sheet.'};
-load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);poll();setInterval(poll,5000);document.addEventListener('visibilitychange',poll);
+if(/admin/.test(location.hash))document.body.classList.add('admin');load();hashUrl();render();setInterval(tick,500);pend();flushOut();setInterval(flushOut,10000);window.addEventListener('online',flushOut);poll();setInterval(poll,5000);document.addEventListener('visibilitychange',poll);
 </script>
 </body>
 </html>
